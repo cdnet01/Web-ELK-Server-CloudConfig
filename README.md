@@ -92,7 +92,7 @@ You can test if Ansible will be able to work by running `ansible all -m ping`. I
 
 Finally, we are ready to setup our Ansible playbook. This will contain all of the commands we need to setup our DVWA site on both of the web servers simultaneously. 
 
----pentest.yml---
+[pentest.yml](resources/pentest.yml)
 
 Now that we have our playbook we can run it with `ansible-playbook pentest.yml`. If successful, we can SSH into our web servers and run `curl localhost/setup.php`. If any html is returned, we know that our site was successfully installed. While we are in the web servers, lets run `sudo docker update -- restart always [container ID]`. This will automatically restart the websites container anytime the web server is rebooted. 
 
@@ -123,7 +123,7 @@ Once we have our new server added, we can go ahead and set up our YAML playbook.
 
 At a high level, our playbook is installing docker, pulling the preconfigured elk container, establishing the ports that ELK will run on, and enabling docker on reboot. 
 
----Please see the ELK playbook here---
+[install-elk.yml](resources/install-elk.yml)
 
 Once the playbook has been created, we can go ahead and run it with `ansible-playbook install-elk.yml`. If successful, it should return no error messages. 
 
@@ -170,8 +170,8 @@ These files will be similar to one another, but at a high level they will be dow
 
 The two YAML playbooks can be found here!
 
----filebeat-playbook.yml---
----metricbeat-playbook.yml---
+- [filebeat-playbook.yml](resources/filebeat-playbook.yml)
+- [metricbeat-playbook.yml](resources/metricbeat-playbook.yml)
 
 Once everything is ready to go, we can run our playbooks from the `/roles/` directory. If successful, we should see no errors. 
 
