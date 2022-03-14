@@ -2,59 +2,61 @@
 
 ### Background
 
-Understanding and building on the cloud is something that many people have not had exposure with, since it can be expensive and complicated. Thanks to resources like Amazon's AWS or Microsoft Azure, it is now easier than ever to spin up your own servers and networks within a cloud environment. In enterprise environments in particular, this capability can significantly reduce the risks involved with hosting your own infrastructures at scale.
+Understanding and building on the cloud can be a massive undertaking for organizations, and it is becoming more and more necessary as technological requirements expand. In enterprise environments in particular, this capability can significantly reduce the risks involved with hosting infrastructures at scale.
 
-In this project, we have taken advantage of Microsoft's Azure platform in order to build out a resource group consisting of two shared virtual networks, two load balanced web servers, an ELK monitoring server, and a secure jump box to SSH between them and automate server setup using Ansible - all taking advantage of docker.io and secured via our own network security rules. 
+In this project, Microsoft's Azure was used in order to build out a virtualized web infrastructure, which was ultimately automated using the IaaC (Infrastructure as Code) provisioner, Ansible. 
 
-As a reference, the network diagram below outlines our cloud resources and the interactions between them. Please use this diagram as a reference to better visualize our cloud infrastructure. 
+As a reference, the network diagram below should be used in order to visualize the cloud infrastructure and interactions. 
 
 ![](resources/azurenet.png)
 
 ### Overview
 
-Lets start by explaining why we would want to build out this specific network. In this case, we will prop up two load balanced web servers which will both host DVWA (Damn Vulnerable Web Application). Later, we will be exploiting the many vulnerabilities of this site, but for now let's focus on building out the infrastructure needed to host it.  
+In this project, two load balanced web servers will be spun up, both hosting DVWA (Damn Vulnerable Web Application). In future projects, this site will be used to exploit its many vulnerabilities. 
 
-In addition to our web servers, we will also need a monitoring server, which in this case will utilize three open source software modules called (E)lasticsearch, (L)ogstash, and (K)ibana. This stack of software is commonly referred to as ELK. These three modules - when combined - give us the ability to search and monitor the logs of our website within a useful web interface. 
+Additionally, a monitoring server will also be spun up. For this project, the ELK stack was chosen due to its search functionality and informative GUI. 
 
-Last but not least, we have our Jumpbox server which allows us to 'jump' between these various web/monitoring servers and automate setup tasks using Ansible. By having a single access point, it provides better control over the network and adds an additional layer of security. If you can manage the Jumpbox, you can manage the network. 
+Lastly, a Jumpbox server will be established, which will act as the main touch point for any and all internal network connections. This Jumpbox will also be the hub for Ansible automation.
+
 
 ### Getting Going
 
-In order to get started, we will need to setup our cloud infrastructure. Since this process is unique to the cloud platform that is being used, I will provide a high level overview of the actions that are being taken and why. 
+Setting up cloud infrastructure is often unique to the platform used, but a high level overview is as follows:
 
-We first must start by creating our resource group. This resource group will contain all of the resources that we need for this project. In this case, we named our resource group "Red-Team" since we will eventually be pen testing these servers. 
+1. Create a resource group. This resource group will contain all infrastructure. In this case, the resource group was named "Red-Team".
 
-Once we have our resource group, we can create our virtual network. In the network diagram above, we can see two different virtual networks. This first one we create will be that "Red Team Virtual Network". 
+2. Create a virtual network. Virtual networks will provide connections between any machines on the network. This project will contain two virtual networks called “Red-Team Virtual Network” and “ELK Virtual Network”.
 
-After we have our virtual network, we will go ahead and create a network security group which will allow us to configure firewall rules. 
+3. Create Virtual Machines. Initially, the Jumpbox VM is created which will be the access point for all other VMs on the network. In order to secure the Jumpbox, an SSH public key is chosen instead of a password. Running `ssh-keygen` on the host machine will generate a public and a private key. These keys are stored in the ` ~/.ssh/` directory. The public key is copied into the key area in the VM setup. Additionally, a public IP will need to be established for the Jumpbox in order to allow SSH. 
 
-Next, let's create our Jumpbox VM. In order secure this Jumpbox, we will opt for an SSH public key as opposed to a password. This will make it much harder for anyone besides us to get into this Jumpbox. We can go ahead and run `ssh-keygen` on our host machine which will generate a public and a private key for us which is stored in our `~/.ssh/` directory. We can go ahead and copy our public key into the key area in our VM setup. Additionally, let's make sure we setup a public IP for our Jumpbox so that we can actually SSH into it. 
 
 ![](resources/addsshkey.png)
 
-Next, we can create two more VMs which will act as our web servers. When setting these up, be sure to run that `ssh-keygen` command on the Jumpbox and not the host. We do not want our host to be able to connect directly to the web servers, since that is the job of the Jumpbox. Additionally, be sure to keep these web server's IP addresses private for now. Later, we will set up a load balancer which will provide the public IPs for these servers. 
+4. Next, two more VMs are created, which will be the web servers. During set up, be sure to run that ssh-keygen command on the Jumpbox and not the host, since only the Jumpbox should have access. For now, these VMs do not need a public IP.
 
-Now that we have our VMs set up, we should go ahead and configure our security rules. By default, Azure will block all incoming traffic, so we will need to set up an inbound rule that allows TCP traffic on port 22 in order to allow us to SSH into the machines. 
+5. In order to connect, security rules will need to be created. By default, Azure will block all incoming traffic, so an inbound rule that allows TCP traffic on port 22 is created. 
 
-Once this is all setup, we should have our own resource group, a virtual network within that resource group, one Jumpbox VM, two web server VM's, and network security rules that allow us to SSH into everything. 
+The VMs can now be accessed via SSH. 
 
 ### Propping Up DVWA 
 
-Now that we have our machines setup, lets get started with getting our site up and running. To do this, we will use docker.io to compartmentalize the websites resources within our web server, as well as using Ansible to automate the setup. 
+In order to spin up the site, docker.io will be utilized to compartmentalize the resources within the web server. In this case, Ansible will be used to automate the setup.
 
-First, let get into our Jumpbox. From here, we can install docker with `sudo apt install docker.io`. Once it is installed and running we will pull our Ansible container with `sudo docker pull [Ansible container]`. 
+From the Jumpbox, docker can be installed with `sudo apt install docker.io`. Once installed and running, the Ansible container will be fetched with `sudo docker pull [Ansible container]`.
 
-We will then launch the Ansible container and attach using `docker run -ti [ansible container]:latest bash`. This will spawn a new bash session as root of the Ansible container. 
+From here, the Ansible container is started and attached to using `docker run -ti [ansible container]:latest bash`. This will spawn a new bash session as root of the Ansible container.
 
-In order for Ansible to run our commands, it will need to be able to connect to the web servers via SSH. In this case, we will need do another `ssh-keygen` but this time while we are attached to our Ansible container. We can then go back into Azure and reset the SSH public keys to the ones that we just created. Once complete, test if you are able to SSH into both web servers from the Ansible containers. 
+In order for Ansible to run commands on other machines, it will need to be able to connect to the web servers via SSH. A new `ssh-keygen` will be needed but this time from the Ansible container. From there, resetting the SSH public keys on Azure for each web server will be needed. Once complete, test the SSH connection.
 
-We will now navigate to `/etc/ansible/` from our Ansible container in order to prepare Ansible to run our commands. We will start by editing the `hosts` file, and add our web servers IP address followed by "ansible_python_interpreter=/usr/bin/python3"
+Navigate to `/etc/ansible/` from the Ansible container in order to configure Ansible. Start by editing the `hosts` file, and add both web server IP address followed by "ansible_python_interpreter=/usr/bin/python3".
+
 
 ![](resources/webserver_group.png)
 
-We will then edit the `ansible.cfg` file to add the username needed to SSH into the web servers. This is done by commenting out the `remote_user` line.
+Once complete, edit the `ansible.cfg` file and add the username needed to SSH into the web servers. This is done by commenting out the remote_user line.
 
 Example:
+
 
     ```bash
     # What flags to pass to sudo
@@ -77,7 +79,7 @@ Example:
 
     ```
 
-You can test if Ansible will be able to work by running `ansible all -m ping`. If you used `ansible_python_interpreter=/usr/bin/python3` your output should look like:
+Test if Ansible will be able to work by running `ansible all -m ping`. If `ansible_python_interpreter=/usr/bin/python3` is used, the output should look as follows:
 
 ```bash
 10.0.0.5 | SUCCESS => {
@@ -90,69 +92,68 @@ You can test if Ansible will be able to work by running `ansible all -m ping`. I
 }
 ```
 
-Finally, we are ready to setup our Ansible playbook. This will contain all of the commands we need to setup our DVWA site on both of the web servers simultaneously. 
+Finally, the Ansible playbook will need to be configured. This file contains all of the commands needed to setup the DVWA site on both web servers simultaneously.
 
 [pentest.yml](resources/pentest.yml)
 
-Now that we have our playbook we can run it with `ansible-playbook pentest.yml`. If successful, we can SSH into our web servers and run `curl localhost/setup.php`. If any html is returned, we know that our site was successfully installed. While we are in the web servers, lets run `sudo docker update -- restart always [container ID]`. This will automatically restart the websites container anytime the web server is rebooted. 
+Run the playbook with `ansible-playbook pentest.yml`. If successful, SSH into a web server and run `curl localhost/setup.php`. If any html is returned, the site was successfully installed. While inside the web servers, run `sudo docker update --restart always [container ID]`. This will automatically restart the DVWA container anytime the server is rebooted.
 
-Now that we have our site, the final step is to setup our load balancer so that we can actually connect to it. In Azure, we will create a new load balancer which should have its own Public IP. From there we setup a health probe to regularly check all the VMs and make sure they are able to receive traffic. Finally, we will create a backend pool and add both of our web servers. 
+The final step is to setup the load balancer. In Azure, a new load balancer will need to be created. From there a health probe is setup to regularly check all the VMs, making sure they are able to receive traffic. Lastly, create a backend pool and add both web servers.
 
-Once that is done, we can add a network security group rule that allows TCP traffic on port 80, and we should then be able to connect to the public IP of our load balancer. 
+Once complete, add a network security group rule that allows TCP traffic on port 80. A web connection can now be established to the public IP of our load balancer as seen below. 
 
 ![](resources/dvwa.png)
 
 
 ### ELK Stack
 
-Now that we have our website up and running, we will want to start monitoring the sites' traffic. To do so, let's setup our ELK stack. 
+Now that the site is up and running, it is time to set up the ELK stack.
 
-In this case, we will be setting up a new virtual network along with a new virtual server and configuring them in essentially the same way as the web servers, so I will go ahead and skip through those steps for the sake of time management. Please reference the network diagram in order to see exactly how our ELK Virtual Network looks in relation to the Red-Team Virtual Network. 
+In this case, a new virtual network will need to be created along with a new virtual server. These will be configured in essentially the same way as the web servers, so those steps will be skipped. 
 
-Once we have our network configured the way we want, we can start configuring Ansible which will allow us to automate the ELK stack deployment. 
+Once the network is configured correctly, Ansible should also be configured which will enable automation of the ELK stack deployment.
 
-Let's begin by getting onto our Jumpbox. From there, we will attach to our Ansible container which will allow us to begin our setup. 
+1. SSH onto the Jumpbox. From there, attach to the Ansible container.
 
 ![](resources/attach_ansible_container.png)
 
-Once we are attached, we will need to navigate back to our `/etc/ansible/hosts` file in order to add the new ELK VMs IP address as a new host group. This will give Ansible the ability to SSH into the machine and run our playbook.
+2. Once attached, navigate back to the `/etc/ansible/hosts` file in order to add the new ELK VMs IP address as a new host group.
 
 ![](resources/add_elk_group.png)
 
-Once we have our new server added, we can go ahead and set up our YAML playbook. 
+3. Once the new server is added, the YAML playbook can be configured.
 
-At a high level, our playbook is installing docker, pulling the preconfigured elk container, establishing the ports that ELK will run on, and enabling docker on reboot. 
+Note: At a high level, the playbook will install docker, pull the preconfigured elk container, establish the ports that ELK will run on, and enable docker on reboot.
 
 [install-elk.yml](resources/install-elk.yml)
 
-Once the playbook has been created, we can go ahead and run it with `ansible-playbook install-elk.yml`. If successful, it should return no error messages. 
+4. Once the playbook is created, run it with `ansible-playbook install-elk.yml`. If successful, it should return no error messages, as seen below.
 
 ![](resources/run_playbook.png)
 
-In order to confirm a successful setup Lets SSH into our ELK VM and check. We can run `sudo docker ps -a` in order to see the status of all of the containers. In our case, we can see that the container is "up 8 minutes" which is a good sign. 
+In order to confirm a successful setup, SSH into the ELK VM and run `sudo docker ps -a` in order to see the status of all containers. In this case, the container has been "up 8 minutes" which is a good sign.
 
 ![](resources/confirm_running.png)
 
-Now, if we have configured our security rules correctly (in this case will want a tcp connection to be allowed on port 5601), we should be able to jump into our browser and visit the Kibana page. 
+ 
+If security rules have been properly configured (a tcp connection needs to to be allowed on port 5601), Kibana should be accessible from a browser.
 
-The URL will look like: `http://[your.ELK-VM.External.IP]:5601/app/kibana`
-
-Since we currently do not have any data, our site should look something like this...
+The URL will look like: `http://[your.ELK-VM.External.IP]:5601/app/kibana` as seen below.
 
 ![](resources/kibana_page.png)
 
 
 ### File/Metric Beat - Log Setup
 
-In order for ELK to be useful as a monitoring service, we will need to begin sending it data from our web servers. In order to do so, we will add both Filebeat and Metricbeat to our two web servers ontop of the web service that is already running. 
+In order for ELK to be useful as a monitoring service, data will need to be sent from the web servers. In order to do so, both Filebeat and Metricbeat are added to the web servers.
 
-Essentially, these two services are used to collect logs from specific files that are useful to us. In this case, we will be collecting logs from our Apache server and MySQL database that are generated by DWVA. 
+These two services are used to collect logs from specific files. In this case, logs will be collected from the DVWA Apache server and MySQL database. 
 
-The instructions for installing these services can be found on the Kibana GUI under `Add Log Data > System Logs` and selecting the Linux instructions. Additionally, Metricbeat instructions can be found under `Add Metric Data > Docker Metrics`. 
+The instructions for installing these services can be found on the Kibana GUI under `Add Log Data > System Logs` and selecting the Linux instructions. Additionally, Metricbeat instructions can be found under `Add Metric Data > Docker Metrics`.
 
-We will be following a similar process for both of these services, so let's get started! 
+Filebeat and Metricbeat setups are very similar. 
 
-Just like before, we will need to get onto our Jumpbox. From there, we can attach to our Ansible container and lets navigate to our `/etc/ansible/` directory. In order to get started we will need to setup the configuration files. To do so, we will simply run the following curl commands for Filebeat and Metricbeat respectfully. 
+1. SSH into Jumpbox. From there, attach to the Ansible container and navigate to the `/etc/ansible/` directory. From there, run the following curl commands in order to retrieve the configuration files for Filebeat and Metricbeat.
 
 Filebeat: `curl https://gist.githubusercontent.com/slape/5cc350109583af6cbe577bbcc0710c93/raw/eca603b72586fbe148c11f9c87bf96a63cb25760/Filebeat > /etc/ansible/files/filebeat-config.yml`
 
@@ -160,43 +161,40 @@ Metricbeat: `curl https://gist.githubusercontent.com/slape/58541585cc1886d2e26cd
 
 ![](resources/curlConfig.png)
 
-Once we have our two config files, we can go ahead and edit them to contain the correct information. The Filebeat file will be much larger, so the items we need to change can be found on line #1106 and #1806. The IP addresses here will need to be the internal IP of the ELK machine. The Metricbeat files is much smaller, and can be configured in the same way. 
+2. Once the two configuration files are obtained, they will need to be edited. The Filebeat file will be much larger, however the items to change can be found on line #1106 and #1806. The IP addresses here will need to be the internal IP of the ELK machine. The Metricbeat file is much smaller, but can be configured in the same way.
 
 ![](resources/config_edit.png)
 
-Once we have updated our config files, we can now start with our Ansible playbooks. Lets add these playbooks into a new directory `/etc/ansible/roles`. In this new directory we will add the new files called `filebeat-playbook.yml` and `metricbeat-playbook.yml`. 
+3. Once the config files are updated, the Ansible playbooks can be created. Add these playbooks into a new directory `/etc/ansible/roles`. In this new directory, `touch` the playbook files called `filebeat-playbook.yml` and `metricbeat-playbook.yml`.
 
-These files will be similar to one another, but at a high level they will be downloading the correct .deb file, installing the package using `dpkg`, copying our config files into the web servers, then running filebeat's setup commands that are specified in the instructions. 
+4. These files will be similar to one another, but at a high level they will download the required .deb file, install the package using `dpkg`, copy the config files into the web servers, then run the setup commands that are specified in the instructions.
 
-The two YAML playbooks can be found here!
+The two YAML playbooks can be found here:
 
 - [filebeat-playbook.yml](resources/filebeat-playbook.yml)
 - [metricbeat-playbook.yml](resources/metricbeat-playbook.yml)
 
-Once everything is ready to go, we can run our playbooks from the `/roles/` directory. If successful, we should see no errors. 
+Once everything is ready to go, run the playbooks from the `/roles/` directory. If successful, the output should be similar to below:
 
 
 ![](resources/filebeatpb.png)
 
-Once both playbooks have been successfully run, we can verify our installation of these services by taking a look back at the instructions on the Kibana GUI. If we scroll down to step #5, we can click on "Check Data". If that is successful, we can also click on "View Dashboard" which will take you to the respective dashboards, which might look similar to the ones below. 
+Once both playbooks have been successfully run, verify the installation of these services by taking a look back at the instructions on the Kibana GUI. Scroll down to step #5, click on "Check Data". If that is successful, click on "View Dashboard". This will display the dashboards, which might look similar to the ones below.
 
 ![](resources/filebeatdash.png)
 ![](resources/metricbeatdash.png)
 
 ### Conclusion
 
-And just like that, we have setup a secure and functioning cloud network on Azure, propped up a website using Ansible automation, configured an external ELK monitoring server, and installed monitoring functionality on the web servers themselves. 
+Just like that, a secure and functioning cloud network has been established. This project utilized the following tools:
 
-This was alot of information and several tools all being used here, but my hope is that we can understand these tools and why they are so useful for professionals. 
+Azure: This platform allows virtual infrastructure to be built on Microsoft's platform without the need for physical machines. In this case a network of machines with their own firewall rules and functionalities was established.
 
-### Tools Used
+Docker: This lightweight tool enables compartmentalized and virtualized services ontop of an OS. In this project, Ansible, a DVWA site, an ELK stack, and two logging services were all utilized via docker.io
 
-Azure: This platform allows us to build on Microsoft's existing infrastructure without the need for our own physical machines. In this case we were able to build a network of machines with their own firewall rules and functionalities. 
+Ansible: This IaaC tool allows automation by SSHing into preconfigured machines and configuring infrastructure via a .yml playbook. Useful in this case for deploying multiple mirrored web servers simultaneously
 
-Docker: This lightweight tool lets us virtualize our operating system and add compartmentalized services on top of our host OS. In our applications here we added Ansible, a DVWA site, an ELK stack, and our two logging services
+ELK: This open source stack allows us to monitor the web server's activity logs to give better insights into the site.
 
-Ansible: This automation tool allows us to SSH into all of our machines at once and configure anything we want by using a preconfigured set of commands. Useful in this case for deploying multiple mirrored web servers simultaneously 
+File/Metricbeat: These services allow the logs from the web servers to be sent over to the ELK stack to be further analyzed.
 
-ELK: This stack allows us to monitor our web server's logs to give us better insights into the site.
-
-File/Metricbeat: These services allow the logs from our web servers to be sent over to the ELK stack itself to be further analyzed by the ELK functionality. 
